@@ -1,8 +1,98 @@
-<html>
-<head>
-  <title>Sphero Control</title>
-</head>
-<body>
-  WIP: coming soon
-</body>
-</html>
+<script>
+    
+    var device = undefined;
+    const radioService = "22bb746f-2bb0-7554-2d6f-726568705327";
+    const robotService = "22bb746f-2ba0-7554-2d6f-726568705327";
+    const controlCharacteristic = "22bb746f-2ba1-7554-2d6f-726568705327";
+    const antiDOSCharateristic = "22bb746f-2bbd-7554-2d6f-726568705327";
+    const powerCharateristic = "22bb746f-2bb2-7554-2d6f-726568705327";
+    const wakeUpCPUCharateristic = "22bb746f-2bbf-7554-2d6f-726568705327";
+    
+    function request() {
+       
+        return navigator.bluetooth.requestDevice(
+            {
+                "filters": [{
+                    "services": [radioService]
+                },
+                {
+                    "services": [robotService]
+                }]
+            })
+            .then(dev => {
+                device = dev;
+                return dev;
+        });
+    }
+    
+    function connect() {
+        return device.gatt.connect().then(gatt => {
+            console.log(gatt.connected ? "Connected" : "Failed to Connect");
+            return gatt;
+        });
+    }
+
+    function sendCommand(did, cid, data) {
+        // Create client command packets
+        // API docs: https://github.com/orbotix/DeveloperResources/blob/master/docs/Sphero_API_1.50.pdf
+        // Next sequence number
+        let seq = this.sequence & 255;
+        this.sequence += 1;
+        // Start of packet #2
+        let sop2 = 0xfc;
+        sop2 |= 1; // Answer
+        sop2 |= 2; // Reset timeout
+        // Data length
+        let dlen = data.byteLength + 1;
+        let sum = data.reduce((a, b) => {
+        return a + b;
+        });
+        // Checksum
+        let chk = (sum + did + cid + seq + dlen) & 255;
+        chk ^= 255;
+        let checksum = new Uint8Array([chk]);
+
+        let packets = new Uint8Array([0xff, sop2, did, cid, seq, dlen]);
+        // Append arrays: packet + data + checksum
+        let array = new Uint8Array(packets.byteLength + data.byteLength + checksum.byteLength);
+        array.set(packets, 0);
+        array.set(data, packets.byteLength);
+        array.set(checksum, packets.byteLength + data.byteLength);
+        return writeCharacteristic(array);          
+    }
+function sendMessage(did, cid, data, resetActivityTimer, wantReply)
+{
+	let sop1 = 0xFF;
+	let sop2 = 0b11111100;
+	sop2 |= wantReply + (resetActivityTimer << 1);
+	let seq = 0x00;
+	let dlen = data.byteLength+1;
+	let dataSum = data.reduce((a, b) => {
+        return a + b;
+        });
+		
+	let chk = ~((did + cid + seq + dlen + dataSum) % 256);
+	
+	let packetHeader = new Uint8Array([sop1, sop2, did, cid, seq, dlen]);
+	let array = new Uint8Array(packetHeader.byteLength + data.byteLength + 1);
+	array.set(packetHeader, 0);
+	array.set(data, packetHeader.byteLength);
+    array.set(new Uint8Array([chk]), packetHeader.byteLength + data.byteLength);
+	
+	return device.gatt.getPrimaryService(robotService)
+            .then(srv => srv.getCharacteristic(controlCharacteristic))
+            .then(characteristic => characteristic.writeValue(array));
+}
+
+
+  
+
+    function writeCharacteristic(value) {
+        return device.gatt.getPrimaryService(robotService)
+            .then(srv => srv.getCharacteristic(controlCharacteristic))
+            .then(characteristic => characteristic.writeValue(value));
+    }
+
+    
+    
+</script>
