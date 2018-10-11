@@ -370,12 +370,42 @@ function sendMessage(did, cid, data, resetActivityTimer, wantReply)
         sprk._sendCommand(0x02, 0x33, new Uint8Array([left < 0 ? 0x02 : 0x01, Math.abs(left), right < 0 ? 0x02 : 0x01, Math.abs(right)]));
     }
     
+    function updateColor()
+    {
+        let red = parseInt(document.getElementById('red').value);
+        let green = parseInt(document.getElementById('green').value);
+        let blue = parseInt(document.getElementById('blue').value);
+        sprk._sendCommand(0x02, 0x20, new Uint8Array([red, green, blue, 0x00]));
+        
+    }
+    
+    function updateHeading()
+    {
+        let heading = parseInt(document.getElementById('heading').value);
+        
+        sprk._sendCommand(0x02, 0x30, new Uint8Array([0x00, heading >> 8, heading & 0xff, 0x00]))
+    }
+    
+    function setStabilization(value)
+    {
+        sprk._sendCommand(0x02, 0x02, new Uint8Array([value]));
+    }
     
 </script>
 
 <input type="number" id="left"></input>
 <input type="number" id="right"></input>
 <button onclick="moveFromInput()">RUN</button>
+<br>
+<input type="number" id="red" oninput="updateColor()"></input>
+<input type="number" id="green" oninput="updateColor()"></input>
+<input type="number" id="blue" oninput="updateColor()"></input>
+<br>
+<input type="range" min="0" max="355" id="heading" oninput="updateHeading()"></input>
+<br>
+<button onclick="setStabilization(1)">Stablize</button>
+<button onclick="setStabilization(0)">!Stablize</button>
+<br>
 <br>
 <button onclick="sprk.request()">Request</button>
 <button onclick="sprk.connect()">Connect</button>
